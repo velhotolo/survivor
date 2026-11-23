@@ -46,6 +46,15 @@ Every single line of code in this project was written inside **Old Fool's IDE** 
 * **Environmental Hazards:** Solid dungeon walls and mud areas that slow down grounded entities.
 * **100% Procedural Pixel Art:** Crisp `nearest`-filtered sprites and repeating tiles generated straight from code.
 
+<img width="1261" height="766" alt="1" src="https://github.com/user-attachments/assets/66549f62-9d9e-4daa-9713-2da23726eb91" />
+
+<img width="1261" height="766" alt="2" src="https://github.com/user-attachments/assets/a1e7f34c-cb0a-49bd-997b-31a5b7b807cb" />
+
+<img width="1261" height="766" alt="3" src="https://github.com/user-attachments/assets/3203200a-e5b1-4f1f-b31e-27084f2956a9" />
+
+<img width="1261" height="766" alt="4" src="https://github.com/user-attachments/assets/c0a58746-7643-43d1-abc5-315c39dac213" />
+
+
 ---
 
 ## 🚀 How to Run
