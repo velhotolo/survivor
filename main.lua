@@ -4,10 +4,10 @@ local Sprites = require("sprites")
 -- GENERAL CONFIGURATION
 -- =========================================================================
 
-local WIDTH, HEIGHT = 800, 600
-local CHANGE_ENEMY_TIME = 40
-local TIME_WEAPON2 = 20
-local TIME_BOSS = 80
+local WIDTH, HEIGHT = 1280, 720
+local CHANGE_ENEMY_TIME = 30
+local TIME_WEAPON2 = 15
+local TIME_BOSS = 60
 
 -- =========================================================================
 -- GAME STATE
@@ -92,7 +92,7 @@ end
 -- Resets all game variables to start or restart a run
 local function startGame()
     hero = {
-        x = 400, y = 300, r = 14, spd = 180, life = 10, invul = 0,
+        x = WIDTH / 2, y = HEIGHT / 2, r = 14, spd = 180, life = 10, invul = 0,
         weapons = {
             wand = { recharge = 0.5, timer = 0, damage = 1, shootSpd = 400 },
             orb  = { qty = 2, angle = 0, radius = 60, rotSpd = 3, size = 10, damage = 1 },
@@ -100,12 +100,12 @@ local function startGame()
     }
     enemies, projectiles, bulletsBoss = {}, {}, {}
     walls = {
-        { x = 150, y = 150, w = 120, h = 30 },
-        { x = 530, y = 150, w = 120, h = 30 },
-        { x = 150, y = 420, w = 120, h = 30 },
-        { x = 530, y = 420, w = 120, h = 30 },
-    }
-    mud = { x = 40, y = 240, w = 140, h = 120 }
+    { x = 320, y = 260, w = 192, h = 32 }, 
+    { x = 544, y = 160, w = 32,  h = 160 }, 
+    { x = 768, y = 420, w = 192, h = 32 }, 
+    { x = 992, y = 320, w = 32,  h = 160 }, 
+}
+mud = { x = 80, y = 260, w = 180, h = 140 }
     boss = nil
     time, timerSpawn, kills = 0, 1, 0
     bossShow = false
@@ -149,7 +149,7 @@ local function updateSpawn(dt)
     timerSpawn = timerSpawn - dt
     if timerSpawn <= 0 then
         createEnemy()
-        timerSpawn = 0.8
+        timerSpawn = 0.4
     end
 end
 
@@ -245,6 +245,186 @@ local function updateProjectiles(dt)
     end
 end
 
+-- Moves the boss, fires radial bullet rings, and triggers victory on death
+local function updateBoss(dt)
+    local d = distance(boss.x, boss.y, hero.x, hero.y)
+    if d > 0 then
+        moveWithCollision(
+            boss,
+            (hero.x - boss.x) / d * boss.spd * dt,
+            (hero.y - boss.y) / d * boss.spd * dt
+        )
+    end
+    if d < boss.r + hero.r then hurtHero() end
+    if boss.invul > 0 then boss.invul = boss.invul - dt end
+
+    boss.timerShoot = boss.timerShoot - dt
+    if boss.timerShoot <= 0 then
+        for i = 1, 12 do
+            local a = (i / 12) * 2 * math.pi
+            table.insert(bulletsBoss, {
+                x = boss.x, y = boss.y, r = 6,
+                vx = math.cos(a) * 150,
+                vy = math.sin(a) * 150,
+            })
+        end
+        boss.timerShoot = 2
+    end
+
+    if boss.life <= 0 then
+        boss = nil
+        state = "victory"
+    end
+end
+
+-- Moves boss bullets and removes them on hero hit, wall collision, or leaving the screen
+local function updateBossBullets(dt)
+    for i = #bulletsBoss, 1, -1 do
+        local b = bulletsBoss[i]
+        b.x, b.y = b.x + b.vx * dt, b.y + b.vy * dt
+
+        local hit = distance(b.x, b.y, hero.x, hero.y) < b.r + hero.r
+        if hit then hurtHero() end
+
+        local out = b.x < 0 or b.x > WIDTH or b.y < 0 or b.y > HEIGHT
+        if hit or out or hitWalls(b.x, b.y, b.r) then
+            table.remove(bulletsBoss, i)
+        end
+    end
+end
+
+-- Removes dead enemies and increments the kill counter
+local function clearDead()
+    for i = #enemies, 1, -1 do
+        if enemies[i].life <= 0 then
+            table.remove(enemies, i)
+            kills = kills + 1
+        end
+    end
+end
+
+-- =========================================================================
+-- WIZARDRY-STYLE HUD
+-- =========================================================================
+
+-- Draws a classic double-bordered RPG panel
+local function drawWizardryBox(x, y, w, h)
+    love.graphics.setColor(0.04, 0.04, 0.06, 0.92)
+    love.graphics.rectangle("fill", x, y, w, h)
+
+    love.graphics.setColor(0.75, 0.72, 0.62) -- Outer aged-bone border
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", x, y, w, h)
+
+    love.graphics.setColor(0.35, 0.33, 0.28) -- Inner subtle border
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", x + 3, y + 3, w - 6, h - 6)
+end
+
+-- Draws the compact retro dungeon-crawler HUD
+local function drawHUD()
+    local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
+    local hudH = 40
+    drawWizardryBox(6, 6, sw - 12, hudH)
+
+    -- Hero portrait frame
+    drawWizardryBox(12, 10, 32, 32)
+    love.graphics.setColor(1, 1, 1)
+    Sprites.draw("hero", 28, 26, 1.4, hero.invul > 0)
+
+    -- HP label and segmented retro bar
+    local maxHP = 10
+    love.graphics.setColor(0.85, 0.80, 0.65)
+    love.graphics.print(string.format("HP %02d/%02d", math.max(0, hero.life), maxHP), 52, 11)
+
+    for i = 1, maxHP do
+        local bx = 52 + (i - 1) * 10
+        local by = 28
+        if i <= hero.life then
+            if hero.life <= 3 then
+                love.graphics.setColor(0.85, 0.18, 0.18)
+            else
+                love.graphics.setColor(0.22, 0.72, 0.30)
+            end
+        else
+            love.graphics.setColor(0.18, 0.16, 0.16)
+        end
+        love.graphics.rectangle("fill", bx, by, 8, 9)
+        love.graphics.setColor(0.05, 0.05, 0.05)
+        love.graphics.rectangle("line", bx, by, 8, 9)
+    end
+
+    -- Vertical divider 1
+    love.graphics.setColor(0.35, 0.33, 0.28)
+    love.graphics.line(160, 12, 160, 40)
+
+    -- Arsenal status
+    love.graphics.setColor(0.85, 0.80, 0.65)
+    love.graphics.print("WAND: ON", 168, 11)
+    if time >= TIME_WEAPON2 then
+        love.graphics.setColor(0.45, 0.80, 1.0)
+        love.graphics.print("ORBS: ON", 168, 26)
+    else
+        love.graphics.setColor(0.55, 0.52, 0.48)
+        love.graphics.print(string.format("ORBS: %02ds", math.ceil(TIME_WEAPON2 - time)), 168, 26)
+    end
+
+    -- Vertical divider 2
+    love.graphics.setColor(0.35, 0.33, 0.28)
+    love.graphics.line(252, 12, 252, 40)
+
+    -- Kills and timer
+    local mins = math.floor(time / 60)
+    local secs = math.floor(time % 60)
+    love.graphics.setColor(0.85, 0.80, 0.65)
+    love.graphics.print(string.format("KILLS: %03d", kills), 260, 11)
+    love.graphics.print(string.format("TIME: %02d:%02d", mins, secs), 260, 26)
+
+    -- Vertical divider 3
+    love.graphics.setColor(0.35, 0.33, 0.28)
+    love.graphics.line(355, 12, 355, 40)
+
+    -- Boss countdown
+    if boss then
+        love.graphics.setColor(0.95, 0.25, 0.25)
+        love.graphics.print("BOSS: LIVE!", 363, 19)
+    else
+        local toBoss = math.max(0, math.ceil(TIME_BOSS - time))
+        love.graphics.setColor(0.80, 0.55, 0.30)
+        love.graphics.print(string.format("BOSS: %02ds", toBoss), 363, 19)
+    end
+
+    -- Bottom Boss HP bar (only appears when boss spawns)
+    if boss then
+        local bw = math.min(340, sw - 40)
+        local bx = (sw - bw) / 2
+        drawWizardryBox(bx, sh - 36, bw, 28)
+        local ratio = math.max(0, boss.life / boss.maxLife)
+        love.graphics.setColor(0.65, 0.10, 0.12)
+        love.graphics.rectangle("fill", bx + 6, sh - 30, (bw - 12) * ratio, 16)
+        love.graphics.setColor(1, 0.95, 0.85)
+        love.graphics.printf(string.format("OVERLORD %d/%d", math.max(0, boss.life), boss.maxLife), bx, sh - 28, bw, "center")
+    end
+
+    -- Victory / Defeat overlay
+    if state ~= "playing" then
+        local bw, bh = 300, 90
+        local bx, by = (sw - bw) / 2, (sh - bh) / 2
+        drawWizardryBox(bx, by, bw, bh)
+        if state == "victory" then
+            love.graphics.setColor(0.35, 0.90, 0.45)
+            love.graphics.printf("VICTORY! OVERLORD SLAIN", bx, by + 22, bw, "center")
+        else
+            love.graphics.setColor(0.95, 0.25, 0.25)
+            love.graphics.printf("DEFEAT! YOU PERISHED", bx, by + 22, bw, "center")
+        end
+        love.graphics.setColor(0.85, 0.80, 0.65)
+        love.graphics.printf("Press R to restart", bx, by + 52, bw, "center")
+    end
+
+    love.graphics.setColor(1, 1, 1)
+end
+
 -- =========================================================================
 -- LOVE2D CALLBACKS (TEST LOOP, SPRITES CREATED IN THE CODEPIXELCREATOR)
 -- =========================================================================
@@ -256,7 +436,7 @@ function love.load()
     startGame()
 end
 
--- Updates game timer, entities, and removes dead enemies
+-- Updates game timer, entities, boss, and win/loss conditions
 function love.update(dt)
     if state ~= "playing" then return end
 
@@ -266,32 +446,35 @@ function love.update(dt)
     updateEnemies(dt)
     updateWeapons(dt)
     updateProjectiles(dt)
+    if boss then updateBoss(dt) end
+    updateBossBullets(dt)
+    clearDead()
 
-    -- Remove enemies with 0 or less life
-    for i = #enemies, 1, -1 do
-        if enemies[i].life <= 0 then
-            table.remove(enemies, i)
-            kills = kills + 1
-        end
-    end
+    if hero.life <= 0 then state = "defeat" end
 end
 
--- Draws the arena, sprites, and basic test HUD
+-- Draws the arena, sprites, projectiles, and Wizardry-style HUD
 function love.draw()
     love.graphics.clear(0.09, 0.10, 0.13)
 
-   -- Dungeon floor background
-Sprites.drawTiled("floor", 0, 0, WIDTH, HEIGHT, 3)
+    -- Dungeon floor background
+    Sprites.drawTiled("floor", 0, 0, WIDTH, HEIGHT, 3)
 
--- Mud area with dark border
-Sprites.drawTiled("mud", mud.x, mud.y, mud.w, mud.h, 3)
-love.graphics.setColor(0.14, 0.09, 0.05)
-love.graphics.rectangle("line", mud.x, mud.y, mud.w, mud.h)
+    -- Mud area with dark border
+    Sprites.drawTiled("mud", mud.x, mud.y, mud.w, mud.h, 3)
+    love.graphics.setColor(0.14, 0.09, 0.05)
+    love.graphics.rectangle("line", mud.x, mud.y, mud.w, mud.h)
 
--- Brick walls
-for _, p in ipairs(walls) do
-    Sprites.drawTiled("wall", p.x, p.y, p.w, p.h, 3)
-end
+    -- Brick walls
+    love.graphics.setColor(1, 1, 1)
+    for _, wall in ipairs(walls) do
+        for wx = wall.x, wall.x + wall.w - 32, 32 do
+            for wy = wall.y, wall.y + wall.h - 32, 32 do
+                Sprites.draw("wall", wx + 16, wy + 16, 4)
+            end
+        end
+    end
+
     -- Hero (flashes when invulnerable)
     local flash = hero.invul > 0 and (math.floor(hero.invul * 15) % 2 == 0)
     Sprites.draw("hero", hero.x, hero.y, 2.5, flash)
@@ -315,12 +498,24 @@ end
         Sprites.draw("boss", boss.x, boss.y, 5.5, boss.invul > 0)
     end
 
-    -- Projectiles
+    -- Hero projectiles
     for _, p in ipairs(projectiles) do
         Sprites.draw("bullet", p.x, p.y, 2)
     end
 
-    -- Simple test HUD
+    -- Boss projectiles
+    for _, b in ipairs(bulletsBoss) do
+        love.graphics.setColor(0.95, 0.25, 0.25)
+        love.graphics.circle("fill", b.x, b.y, b.r)
+    end
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print(string.format("HP: %d  |  Kills: %d  |  Time: %.1fs", hero.life, kills, time), 12, 12)
+
+    -- Wizardry-style HUD
+    drawHUD()
+end
+
+-- Handles global shortcuts (quit and restart)
+function love.keypressed(key)
+    if key == "escape" then love.event.quit() end
+    if key == "r" and state ~= "playing" then startGame() end
 end

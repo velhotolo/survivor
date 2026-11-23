@@ -28,20 +28,25 @@ local PALETA = {
 
 -- Pixel-art sprite and tile grids
 local RAW = {
-    hero = {
-        "....kkkk....",
-        "...kbbbbk...",
-        "..kbbbbbbk..",
-        ".kbbbbbbbbk.",
-        "kkkyyyyyykkk",
-        "..kppkkppk..",
-        "..kppppppk..",
-        "...kbbbbk...",
-        "..kbbccbbk..",
-        "..kbbbbbbk..",
-        "...kk..kk...",
-        "...kk..kk...",
-    },
+  hero = {
+    "....KKKKKKKK....",
+    "...KRRRRRRRRK...",
+    "...KSSSSSSSSK...",
+    "...KSKSSSSKSK...", 
+    "...KSSKSSKSSK...", 
+    "...KSSSSSSSSK...",
+    "....KSKKKKsK....", 
+    "..KKSSssssSSKK..",
+    ".KSSSSsSSsSSSSK.", 
+    ".KSSsKSssSKsSSK.", 
+    ".KSSsKSSSSKsSSK.", 
+    ".KSSK.KssK.KSSK.", 
+    "..KK.KBBBBK.KK..", 
+    ".....KBKKBK.....",
+    ".....Kb..bK.....",
+    "....KKK..KKK...."  
+},
+
     slime = {
         "..........",
         "...kkkk...",
